@@ -1,0 +1,22 @@
+InstaTube resource-build troubleshooting
+
+The three named strings in app/src/main/res/values/strings.xml have been rewritten
+as plain UTF-8 text without backslash Unicode escapes.
+
+VideoView.kt contains one qualityTag(height: Int) helper definition in this archive;
+the other occurrence is its call site.
+
+The reported story_not_supported_title error under ~/.gradle/caches/.../transformed/ui/res/values/values.xml
+comes from a transformed dependency artifact, not a source file included in this ZIP.
+If that error persists, clear Gradle's transform cache and rebuild:
+  ./gradlew --stop
+  rm -rf ~/.gradle/caches/9.7.1/transforms
+  ./gradlew :app:assembleRelease --no-daemon --refresh-dependencies
+
+A full Gradle build was not verified in this environment.
+
+Additional source fix (v3):
+- Removed VideoView.kt's duplicate top-level qualityTag(height: Int) helper.
+- VideoView now resolves qualityTag(height) to the shared internal helper in DownloadsUi.kt.
+- Only one top-level qualityTag declaration remains across app Kotlin sources.
+- Build has not been run in this environment; verify with ./gradlew :app:assembleRelease --no-daemon.
