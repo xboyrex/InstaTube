@@ -1,0 +1,92 @@
+name: Build & Release InstaTube APK
+
+on:
+  push:
+    branches:
+      - '**'
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  build:
+    name: Build InstaTube APK
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Accept Android SDK Licenses
+        run: |
+          if [ -n "$ANDROID_HOME" ] && [ -f "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" ]; then
+            yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          fi
+
+      - name: Test Android string escape validator
+        run: python3 scripts/test_android_string_escapes.py
+
+      - name: Validate Android string escapes in all local modules
+        run: python3 scripts/check_android_string_escapes.py
+
+      - name: Diagnose relevant resource sources
+        if: failure()
+        run: |
+          echo "Checked-out commit: $(git rev-parse --short HEAD)"
+          echo "Project modules:"
+          grep -nE '^include\(' settings.gradle.kts || true
+          echo "Relevant source declarations:"
+          grep -RInE 'quality_custom_description|story_not_supported_body|story_not_supported_title' \
+            --include='*.xml' --exclude-dir=build . || true
+          echo "Resource value files:"
+          find . -path '*/src/main/res/values*/*.xml' -type f -not -path '*/build/*' -print
+
+      - name: Clean Gradle outputs
+        run: ./gradlew clean --no-daemon
+
+      - name: Build Release APK
+        run: ./gradlew :app:assembleRelease --no-daemon --stacktrace
+
+      - name: Prepare APK Asset
+        run: |
+          mkdir -p release-assets
+          cp app/build/outputs/apk/release/*.apk release-assets/InstaTube.apk
+          ls -lh release-assets/
+
+      - name: Upload InstaTube APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: InstaTube-APK
+          path: release-assets/InstaTube.apk
+          retention-days: 30
+
+      - name: Publish GitHub Release
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        continue-on-error: true
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v3.0.0
+          name: "InstaTube v3.0.0"
+          files: release-assets/InstaTube.apk
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
