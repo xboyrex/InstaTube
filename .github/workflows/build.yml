@@ -1,4 +1,5 @@
-name: Build & Release InstaTube APK
+name: InstaTube | Android CI & Release
+run-name: "InstaTube | Build & Release #${{ github.run_number }}"
 
 on:
   push:
