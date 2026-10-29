@@ -1,0 +1,146 @@
+plugins {
+    id("com.android.application")
+    id("org.jetbrains.kotlin.plugin.compose")
+}
+
+val releaseStoreFile = System.getenv("INSTATUBE_RELEASE_STORE_FILE")
+val releaseStorePassword = System.getenv("INSTATUBE_RELEASE_STORE_PASSWORD")
+val releaseKeyAlias = System.getenv("INSTATUBE_RELEASE_KEY_ALIAS")
+val releaseKeyPassword = System.getenv("INSTATUBE_RELEASE_KEY_PASSWORD")
+val hasStableReleaseKey = !releaseStoreFile.isNullOrBlank() &&
+    !releaseStorePassword.isNullOrBlank() &&
+    !releaseKeyAlias.isNullOrBlank() &&
+    !releaseKeyPassword.isNullOrBlank()
+
+android {
+    namespace = "com.roshan.instatube"
+    compileSdk = 37
+
+    defaultConfig {
+        applicationId = "com.roshan.instatube"
+        minSdk = 24
+        targetSdk = 36
+        versionCode = 300
+        versionName = "3.0.0"
+
+        vectorDrawables {
+            useSupportLibrary = true
+        }
+    }
+
+    signingConfigs {
+        if (hasStableReleaseKey) {
+            create("stableRelease") {
+                storeFile = file(checkNotNull(releaseStoreFile))
+                storePassword = checkNotNull(releaseStorePassword)
+                keyAlias = checkNotNull(releaseKeyAlias)
+                keyPassword = checkNotNull(releaseKeyPassword)
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            isMinifyEnabled = false
+            isShrinkResources = false
+            // CI branch artifacts can use debug signing; public releases must supply a
+            // persistent keystore so in-app upgrades retain the same signing certificate.
+            signingConfig = if (hasStableReleaseKey) {
+                signingConfigs.getByName("stableRelease")
+            } else {
+                signingConfigs.getByName("debug")
+            }
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
+        debug {
+            isDebuggable = true
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+        isCoreLibraryDesugaringEnabled = true
+    }
+
+    buildFeatures {
+        compose = true
+        buildConfig = true
+    }
+
+    androidResources {
+        localeFilters += listOf("en")
+    }
+
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
+    }
+
+    packaging {
+        resources {
+            excludes += listOf(
+                "META-INF/AL2.0",
+                "META-INF/LGPL2.1",
+                "META-INF/*.kotlin_module",
+                "META-INF/DEPENDENCIES",
+                "META-INF/com/android/build/**",
+                "META-INF/version-control-info.textproto",
+                "META-INF/*.version",
+                "google/**",
+                "kotlin/**",
+                "org/mozilla/javascript/resources/Messages_*.properties",
+                "DebugProbesKt.bin",
+                "META-INF/**/LICENSE.txt",
+                "META-INF/**/LICENSE",
+            )
+        }
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+    }
+}
+
+dependencies {
+    val composeBom = platform("androidx.compose:compose-bom:2026.09.00")
+    val media3 = "1.10.1"
+
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs_nio:2.1.5")
+
+    implementation(composeBom)
+    implementation("androidx.core:core-ktx:1.19.0")
+    implementation("androidx.activity:activity-compose:1.13.0")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.9.4")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.4")
+    implementation("androidx.compose.ui:ui")
+    implementation("androidx.compose.ui:ui-graphics")
+    implementation("androidx.compose.animation:animation")
+    implementation("androidx.compose.foundation:foundation")
+    implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.material:material-icons-extended")
+
+    implementation("io.github.kyant0:backdrop:2.0.1")
+    implementation("io.github.kyant0:shapes:1.2.1")
+
+    implementation("androidx.media3:media3-exoplayer:$media3")
+    implementation("androidx.media3:media3-exoplayer-dash:$media3")
+    implementation("androidx.media3:media3-exoplayer-hls:$media3")
+    implementation("androidx.media3:media3-datasource-okhttp:$media3")
+    implementation("androidx.media3:media3-database:$media3")
+    implementation("androidx.media3:media3-session:$media3")
+    implementation("androidx.media3:media3-ui-compose:$media3")
+
+    implementation("com.github.TeamNewPipe:NewPipeExtractor:v0.26.5")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("io.coil-kt:coil-compose:2.7.0")
+    implementation("com.google.guava:guava:33.3.1-android")
+
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20240303")
+}
